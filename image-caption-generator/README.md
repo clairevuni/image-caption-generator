@@ -2,40 +2,7 @@
 
 This project implements an **image captioning model** that generates descriptive captions for images. It combines a **Convolutional Neural Network (CNN)** for visual feature extraction with a **Long Short-Term Memory (LSTM)** network for sequence generation.
 
-The project is based on the **Flickr8k** dataset.
-
----
-
-## Project Structure
-
-image-caption-generator/
-│
-├── data/
-│ ├── Flickr8k_Dataset/
-│ │ └── Images/ # All image files
-│ └── Flickr8k_text/
-│ ├── captions.txt # Raw captions
-│ ├── Flickr_8k.trainImages.txt
-│ ├── Flickr_8k.devImages.txt
-│ └── Flickr_8k.testImages.txt
-│
-├── features/
-│ └── image_features.pkl # Extracted features from images
-│
-├── src/
-│ ├── preprocess.py # Text preprocessing and tokenization
-│ ├── extract_features.py # Feature extraction using CNN
-│ ├── data_loader.py # Dataset loading and vocabulary setup
-│ └── model.py # Model building and training
-│
-├── notebook/
-│ └── exploration.ipynb # Notebooks for data exploration and testing
-│
-├── results/
-│ └── generated_captions.txt # Sample generated captions
-│
-└── README.md
-
+The project is based on the **Flickr8k** dataset
 
 
 ---
