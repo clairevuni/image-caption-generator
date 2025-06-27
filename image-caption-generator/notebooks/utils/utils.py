@@ -66,6 +66,7 @@ def max_caption_length(captions):
     """Restituisce la lunghezza massima tra tutte le caption."""
     return max(len(c.split()) for c in captions)
 
+# in utils.py
 def data_generator(captions_dict, image_features, tokenizer, max_length, vocab_size, batch_size):
     import numpy as np
     from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -77,38 +78,35 @@ def data_generator(captions_dict, image_features, tokenizer, max_length, vocab_s
 
         while len(X1) < batch_size:
             img_id = random.choice(list(captions_dict.keys()))
-            caption_list = captions_dict[img_id]
-            caption = random.choice(caption_list)
-
-            seq = tokenizer.texts_to_sequences([caption])[0]
-
-            if len(seq) < 2:
-                continue  # Skip captions troppo corte
-
-            # Prendi un token casuale per predire
-            i = random.randint(1, len(seq)-1)
-            in_seq = seq[:i]
-            out_seq = seq[i]
-
-            in_seq_padded = pad_sequences([in_seq], maxlen=max_length, padding='post')[0]
-            out_seq_cat = to_categorical(out_seq, num_classes=vocab_size)
-
-            # --- LA CORREZIONE È QUI ---
-            # Usiamo np.squeeze per assicurare che la forma sia (2048,) e non (1, 2048)
-            feature_vector = np.squeeze(image_features[img_id])
-            X1.append(feature_vector.astype(np.float32))
-            # ---------------------------
             
-            X2.append(in_seq_padded.astype(np.int32))
-            y.append(out_seq_cat.astype(np.float32))
+            try:
+                caption_list = captions_dict[img_id]
+                caption = random.choice(caption_list)
+                seq = tokenizer.texts_to_sequences([caption])[0]
 
-        # Converto tutto in numpy array
-        batch_X1 = np.array(X1)
-        batch_X2 = np.array(X2)
-        batch_y = np.array(y)
-        
-        # Le stampe di debug sono ottime per verificare, lasciale pure per ora
-        # print(f"Batch shapes: X1={batch_X1.shape}, X2={batch_X2.shape}, y={batch_y.shape}")
-        # print(f"Batch dtypes: X1={batch_X1.dtype}, X2={batch_X2.dtype}, y={batch_y.dtype}")
+                if len(seq) < 2:
+                    continue
 
-        yield (batch_X1, batch_X2), batch_y
+                i = random.randint(1, len(seq) - 1)
+                in_seq = seq[:i]
+                out_seq = seq[i]
+
+                in_seq_padded = pad_sequences([in_seq], maxlen=max_length, padding='post')[0]
+                out_seq_cat = to_categorical(out_seq, num_classes=vocab_size)
+                
+                # --- LA MODIFICA CHIAVE È QUI ---
+                feature_vector = image_features[img_id]
+                feature_squeezed = np.squeeze(feature_vector)
+                # Assicura che l'array sia C-contiguous prima di passarlo
+                feature_contiguous = np.ascontiguousarray(feature_squeezed)
+                
+                X1.append(feature_contiguous.astype(np.float32))
+                X2.append(in_seq_padded.astype(np.int32))
+                y.append(out_seq_cat.astype(np.float32))
+            
+            except KeyError:
+                # Aggiungiamo un controllo esplicito per chiavi mancanti, per sicurezza
+                print(f"Attenzione: chiave {img_id} non trovata in uno dei dizionari. Salto.")
+                continue
+
+        yield (np.array(X1), np.array(X2)), np.array(y)
