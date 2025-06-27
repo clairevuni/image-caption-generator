@@ -39,7 +39,7 @@ def load_captions_txt(path):
             if len(line) < 1:
                 continue
             if line.lower().startswith('image'):
-                print("Skipping header:", line)  # Debug: verifica la riga header
+                print("Skipping header:", line)  
                 continue
             img_file, caption = line.split(',', 1)
             img_id = img_file.split('.')[0]
@@ -70,12 +70,13 @@ def data_generator_single_example(captions_dict, image_features, tokenizer, max_
     """
     Generatore che restituisce UN solo esempio alla volta.
     """
+    # Import necessari DENTRO la funzione per la parallelizzazione di TF
     import numpy as np
     from tensorflow.keras.preprocessing.sequence import pad_sequences
     from tensorflow.keras.utils import to_categorical
     import random
 
-    # Il ciclo principale ora genera un esempio e lo restituisce subito
+    # Il ciclo principale genera un esempio e lo restituisce subito
     while True:
         # Scegli un'immagine casuale
         img_id = random.choice(list(captions_dict.keys()))
@@ -95,7 +96,7 @@ def data_generator_single_example(captions_dict, image_features, tokenizer, max_
         for i in range(1, len(seq)):
             # La sequenza di input è fino alla parola i-esima
             in_seq = seq[:i]
-            # La sequenza di output è la parola i-esima
+            # La parola di output è la parola i-esima
             out_word = seq[i]
             
             # Esegui il padding della sequenza di input
@@ -110,5 +111,39 @@ def data_generator_single_example(captions_dict, image_features, tokenizer, max_
             # Fai yield di un singolo campione completo
             yield (img_feature, in_seq_padded), out_word_one_hot
 
-# Puoi anche lasciare la vecchia funzione data_generator nel file se vuoi, non darà fastidio
-# a meno che non la chiami.
+# Assicurati che non ci siano altre definizioni di data_generator nel file
+# che potrebbero essere importate per errore.
+
+
+def generate_caption(model, tokenizer, feature_vector, max_length):
+    """
+    Genera una caption per un'immagine dato il suo vettore di feature.
+    """
+    feature_vector = np.reshape(feature_vector, (1, 2048))
+    
+    in_text = 'startseq'
+    
+    for i in range(max_length):
+        sequence = tokenizer.texts_to_sequences([in_text])[0]
+        
+        sequence = pad_sequences([sequence], maxlen=max_length)
+        
+        yhat = model.predict([feature_vector, sequence], verbose=0)
+        
+        best_word_index = np.argmax(yhat)
+        
+        word = tokenizer.index_word.get(best_word_index)
+        
+        if word is None:
+            break
+            
+        in_text += ' ' + word
+        
+        if word == 'endseq':
+            break
+            
+    final_caption = in_text.split()
+    final_caption = final_caption[1:-1] 
+    final_caption = ' '.join(final_caption)
+    
+    return final_caption
