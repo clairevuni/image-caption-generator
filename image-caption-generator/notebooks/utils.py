@@ -66,47 +66,49 @@ def max_caption_length(captions):
     """Restituisce la lunghezza massima tra tutte le caption."""
     return max(len(c.split()) for c in captions)
 
-# in utils.py
-def data_generator(captions_dict, image_features, tokenizer, max_length, vocab_size, batch_size):
+def data_generator_single_example(captions_dict, image_features, tokenizer, max_length, vocab_size):
+    """
+    Generatore che restituisce UN solo esempio alla volta.
+    """
     import numpy as np
     from tensorflow.keras.preprocessing.sequence import pad_sequences
     from tensorflow.keras.utils import to_categorical
     import random
 
+    # Il ciclo principale ora genera un esempio e lo restituisce subito
     while True:
-        X1, X2, y = [], [], []
-
-        while len(X1) < batch_size:
-            img_id = random.choice(list(captions_dict.keys()))
+        # Scegli un'immagine casuale
+        img_id = random.choice(list(captions_dict.keys()))
+        
+        # Controlliamo che l'immagine esista nel dizionario delle feature
+        if img_id not in image_features:
+            continue
             
-            try:
-                caption_list = captions_dict[img_id]
-                caption = random.choice(caption_list)
-                seq = tokenizer.texts_to_sequences([caption])[0]
+        # Scegli una caption casuale per quell'immagine
+        caption = random.choice(captions_dict[img_id])
+        
+        # Tokenizza la caption
+        seq = tokenizer.texts_to_sequences([caption])[0]
 
-                if len(seq) < 2:
-                    continue
-
-                i = random.randint(1, len(seq) - 1)
-                in_seq = seq[:i]
-                out_seq = seq[i]
-
-                in_seq_padded = pad_sequences([in_seq], maxlen=max_length, padding='post')[0]
-                out_seq_cat = to_categorical(out_seq, num_classes=vocab_size)
-                
-                # --- LA MODIFICA CHIAVE È QUI ---
-                feature_vector = image_features[img_id]
-                feature_squeezed = np.squeeze(feature_vector)
-                # Assicura che l'array sia C-contiguous prima di passarlo
-                feature_contiguous = np.ascontiguousarray(feature_squeezed)
-                
-                X1.append(feature_contiguous.astype(np.float32))
-                X2.append(in_seq_padded.astype(np.int32))
-                y.append(out_seq_cat.astype(np.float32))
+        # Creiamo coppie input/output dalla sequenza
+        # Iteriamo su ogni parola della caption per creare più esempi
+        for i in range(1, len(seq)):
+            # La sequenza di input è fino alla parola i-esima
+            in_seq = seq[:i]
+            # La sequenza di output è la parola i-esima
+            out_word = seq[i]
             
-            except KeyError:
-                # Aggiungiamo un controllo esplicito per chiavi mancanti, per sicurezza
-                print(f"Attenzione: chiave {img_id} non trovata in uno dei dizionari. Salto.")
-                continue
+            # Esegui il padding della sequenza di input
+            in_seq_padded = pad_sequences([in_seq], maxlen=max_length, padding='post')[0]
+            
+            # Converti la parola di output in one-hot encoding
+            out_word_one_hot = to_categorical([out_word], num_classes=vocab_size)[0]
+            
+            # Estrai le feature dell'immagine
+            img_feature = image_features[img_id]
 
-        yield (np.array(X1), np.array(X2)), np.array(y)
+            # Fai yield di un singolo campione completo
+            yield (img_feature, in_seq_padded), out_word_one_hot
+
+# Puoi anche lasciare la vecchia funzione data_generator nel file se vuoi, non darà fastidio
+# a meno che non la chiami.
